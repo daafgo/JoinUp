@@ -2,6 +2,8 @@ from django.conf import settings
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
+
+from .models import CustomUser
 from .serializers import UserSerializer
 from django.core.mail import send_mail
 from twilio.rest import Client
@@ -16,11 +18,14 @@ class SignupAPIView(APIView):
     @staticmethod
     def post(request, *args, **kwargs):
         serializer = UserSerializer(data=request.data)
+
         if serializer.is_valid():
+            if CustomUser.objects.filter(username=request.data['username']).exists():
+                return Response({'error': "This username it's in use"}, status=status.HTTP_400_BAD_REQUEST)
             user = serializer.save()
             try:
-                subject = 'Confirmación de registro'
-                message = 'Por favor, confirma tu correo electrónico.'
+                subject = 'Register confirmation'
+                message = 'Please, confirm your email.'
                 email_from = settings.EMAIL_HOST_USER
                 recipient_list = [user.email]
                 send_mail(subject, message, email_from, recipient_list)
@@ -38,3 +43,19 @@ class SignupAPIView(APIView):
                 {"message": "Successful register, an email and a sms are sending to you to confirm your register."},
                 status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class UserProfileView(APIView):
+    @staticmethod
+    def post(request, *args, **kwargs):
+        user_id = request.data.get('user_id')
+        if not user_id:
+            return Response({'error': 'Please specify the user ID'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            user = CustomUser.objects.get(id=user_id)
+            serializer = UserSerializer(user)
+            data = serializer.data
+            return Response(data)
+        except CustomUser.DoesNotExist:
+            return Response({'error': 'User not Found'}, status=status.HTTP_404_NOT_FOUND)

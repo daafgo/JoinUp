@@ -17,13 +17,12 @@ Including another URLconf
 import os
 from django.contrib import admin
 from django.urls import path, include
-from users.views import SignupAPIView , ProfileAPIView
+from users.views import SignupAPIView, UserProfileView
 
 VERSION_API = os.environ.get('VERSION_API', 'v1')  # Si no se especifica, se usa 'v1' por defecto
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api-auth/', include('rest_framework.urls')),
     path(f'api/{VERSION_API}/signup/', SignupAPIView.as_view(), name='signup'),
-    path(f'api/{VERSION_API}/profile/', ProfileAPIView.as_view(), name='profile'),
-
+    path(f'api/{VERSION_API}/profile/', UserProfileView.as_view(), name='Profile')
 ]

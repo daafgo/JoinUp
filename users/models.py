@@ -4,7 +4,7 @@ from django.db import models
 
 class CustomUser(django.contrib.auth.models.AbstractUser):
     phone = models.CharField(max_length=15)
-    hobbies = models.TextField(blank=True).email_valid = models.BooleanField(default=False)
+    hobbies = models.TextField(blank=True)
     phone_valid = models.BooleanField(default=False)
     email_valid = models.BooleanField(default=False)
     groups = models.ManyToManyField(

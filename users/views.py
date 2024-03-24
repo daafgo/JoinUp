@@ -3,12 +3,11 @@ from django.db import transaction
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-
 from .models import CustomUser
 from .serializers import UserSerializer
 from django.core.mail import send_mail
 from twilio.rest import Client
-# Create your views here.
+from celery import shared_task
 import logging
 
 SPAIN_PREFIX = '+(34)'
@@ -29,19 +28,20 @@ class SignupAPIView(APIView):
 
             user = serializer.save()
             if settings.ENVIRONMENT == 'prod':
-                if not send_confirmation_email(user):
+                if not send_confirmation_email.delay(user.email):
                     transaction.set_rollback(True)
                     return Response({'error': "Error sending email, please try again"},
                                     status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-                if not send_confirmation_sms(user):
+                if not send_confirmation_sms.delay(user.phone):
                     transaction.set_rollback(True)
                     return Response({'error': "Error sending SMS, please try again"},
                                     status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
             return Response(
                 {
-                    "message": "Successful register, an email and a SMS are being sent to you to confirm your registration."},
+                    "message": "Successful register, an email and a SMS are being sent to you to confirm your "
+                               "registration."},
                 status=status.HTTP_201_CREATED
             )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -63,12 +63,13 @@ class UserProfileView(APIView):
             return Response({'error': 'User not Found'}, status=status.HTTP_404_NOT_FOUND)
 
 
-def send_confirmation_email(user):
+@shared_task
+def send_confirmation_email(user_email):
     try:
         subject = 'Register confirmation'
         message = 'Please, confirm your email.'
         email_from = settings.EMAIL_HOST_USER
-        recipient_list = [user.email]
+        recipient_list = [user_email]
         send_mail(subject, message, email_from, recipient_list)
         return True
     except Exception as e:
@@ -76,11 +77,12 @@ def send_confirmation_email(user):
         return False
 
 
-def send_confirmation_sms(user):
+@shared_task
+def send_confirmation_sms(user_phone):
     try:
         client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
         verify = client.verify.v2.services(settings.TWILIO_VERIFY_SERVICE_SID)
-        verify.verifications.create(to=SPAIN_PREFIX + user.phone, channel=VERIFICATION_CHANEL)
+        verify.verifications.create(to=SPAIN_PREFIX + user_phone, channel=VERIFICATION_CHANEL)
         return True
     except Exception as e:
         logger.error('Error on SMS send: ' + str(e))

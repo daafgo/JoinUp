@@ -9,7 +9,7 @@ class UserSerializer(serializers.HyperlinkedModelSerializer):
     last_name = serializers.CharField(required=True)
     email = serializers.EmailField(required=True)
     phone = serializers.RegexField(regex=PHONE_REGEX,
-                                   error_messages={'invalid': 'El número de teléfono no es válido'})
+                                   error_messages={'invalid': 'Phone number not valid'})
     hobbies = serializers.CharField(required=False)
 
     class Meta:
